@@ -1,6 +1,6 @@
 # Party Games Hub: v1 build plan (Password)
 
-Status: draft, 25 Oct 2026. Source: PRD "Party Games Hub — Password (v1)".
+Status: v1 built, 25 Oct 2026. Source: PRD "Party Games Hub — Password (v1)". The hub ships as **Rounds**.
 
 ## 1. What we're building
 
@@ -18,6 +18,10 @@ The decisions already made in the PRD:
 | Night tally in v1? | Yes |
 | First word pack language | English |
 | Target score / timer | Configurable. Defaults are 15 points and 30 s |
+| Win check | At the end of each round, so going first is no advantage. A tie at or over the target goes to sudden death |
+| Skip | Max 1 per turn by default. It sends a new word and resets the clue counter; the timer keeps running |
+| Product name | "Password" is fine for now; the hub is called Rounds |
+| WhatsApp account | A throwaway number connected to Agent 37, so the ban risk is acceptable |
 
 ## 2. Architecture
 
@@ -60,14 +64,12 @@ The decisions already made in the PRD:
 - Turn order is A, B, A, B. Within a team, clue-giver and guesser swap on that team's next turn.
 - A turn ends on a correct guess, on the 3rd failed clue, or when the timer hits 0.
   Scoring is 3/2/1/0 based on which clue the guess came on.
-- **Skip:** max 1 per turn. It sends a new word, resets the clue counter and keeps the timer running.
-  *(Proposed. The PRD doesn't specify whether it resets clues.)*
+- **Skip:** max 1 per turn by default. It sends a new word, resets the clue counter and keeps the timer running.
 - **Win check at the end of a round** (after both teams have played), so team A doesn't win just because
-  it went first:
+  it went first. In a rematch the other team starts:
   - one team ≥ target: that team wins
   - both teams ≥ target: the higher score wins
   - both teams ≥ target and tied: sudden death, one turn each with the same rules, repeated until someone leads
-  *(Proposed interpretation of "ties go to sudden death".)*
 - Data model supports 2–6 players per team. The v1 UI locks it to 2 per team.
 - House rules: timer length (20/30/45/60 s), target score (10/15/20/custom), word pack.
 
@@ -77,7 +79,7 @@ The decisions already made in the PRD:
 2. **Setup:** 4 players (name + WhatsApp number, remembered across nights), shuffle teams, team names,
    word pack, and a house-rules sheet.
 3. **Opt-in checklist:** a QR code / `wa.me/<agent-number>?text=hi` link for the table. Each player shows a
-   tick once the agent confirms receiving their "hi" (see open question Q2; the manual fallback is the host ticking it).
+   tick once they have said "hi". In v1 the host ticks them by hand (open question 2).
 4. **Turn ready:** "Riya gives clues → Arjun guesses" and a big **Start turn** button.
 5. **Turn live:** a big timer ring, clue dots (3), and three big controls: **Correct**, **Next clue** and
    **Skip** (1 per turn). The WhatsApp delivery state appears as a small chip: sending / sent / failed → Reveal.
@@ -85,9 +87,11 @@ The decisions already made in the PRD:
 7. **Winner:** confetti, the final score, **Play again** and **Back to game night**.
 8. **Game night:** matches tonight, wins per team/player, MVP (nice-to-have), and a share recap to WhatsApp (nice-to-have).
 
-Visual language: reuse the dark style of the shared design artifact (`#111115` page, mint `#34d399` primary,
-indigo `#6d6af5` secondary, Bricolage Grotesque / DM Sans / JetBrains Mono, 42 px+ tap targets).
-*The linked artifact shows DesignLingo screens, not Party Games Hub screens (see Q1).*
+Visual language: the **Rounds** design system: plum-black `#15121C` ground, `#221E2C` cards,
+lime `#D9F04F` for primary actions, coral `#FF7A6B` and sky `#7AC8FF` for the two teams, cream `#F4EFE8` ink,
+Bricolage Grotesque headlines over DM Sans, pill buttons 56 px+.
+Screens: https://claude.ai/artifact/ST5WjLLZPKvwXijhiz8qmY (built on the hub designs in
+https://claude.ai/artifact/8vQyRYrueojKmoDuqMyJB4).
 
 ## 5. Repo layout
 
@@ -129,9 +133,9 @@ M2 is deliberately ahead of M3. It proves the core loop and the fallback before 
 
 ## 8. Open questions for @sid
 
-1. **Q1:** The linked design (`Czgpbj5dfBr4dYcfMm8u4j`) is the DesignLingo "Day 1 to Day 2" flow.
-   Is there a Party Games Hub design, or should we design these screens from scratch in that visual style?
-2. **Q2:** What does Agent 37 actually expose? We need an inbound trigger URL, the auth scheme, and whether
-   it can call us back for delivery status and received "hi" messages.
-3. **Q3:** Confirm the end-of-round win check and that a skip resets the clue counter (§3).
-4. **Q4:** Product name.
+1. **Agent 37's inbound interface.** The relay POSTs `{to, text, idempotency_key}` with a Bearer token
+   (see README). Match the agent's skill to that, or tell us its real shape and we'll adapt `app/api/notify`.
+2. **Opt-in ticks.** For v1 the host ticks players manually. An agent → app callback for received "hi"
+   messages would need a small KV store.
+3. **Word packs.** The bundled packs have 115–225 hand-picked words each, short of the ~300 target. Grow them
+   during play-tests using the skip rate.
