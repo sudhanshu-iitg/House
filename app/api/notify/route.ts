@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { parseMessage, render, type OutgoingMessage } from "@/lib/notify/templates";
 
@@ -5,10 +6,12 @@ import { parseMessage, render, type OutgoingMessage } from "@/lib/notify/templat
  * Relays game messages to the Agent 37 agent, which delivers them on WhatsApp.
  * The webhook URL and secret stay on the server.
  *
- *   AGENT37_WEBHOOK_URL     the agent's inbound webhook
- *   AGENT37_WEBHOOK_SECRET  sent as a Bearer token
+ *   AGENT37_WEBHOOK_URL     the agent's inbound webhook (a Hermes webhook route)
+ *   AGENT37_WEBHOOK_SECRET  the route's HMAC secret
  *
- * Each call POSTs {to, text, idempotency_key} as JSON, one request per recipient.
+ * Each call POSTs {to, text, idempotency_key} as JSON, one request per recipient, signed with
+ * Hermes's generic V2 scheme: X-Webhook-Signature-V2 = hex HMAC-SHA256 of "<timestamp>.<body>".
+ * X-Request-ID carries the idempotency key, which Hermes dedupes for an hour.
  */
 
 export const runtime = "nodejs";
@@ -44,16 +47,24 @@ export async function POST(req: Request) {
   return NextResponse.json({ results }, { status: ok ? 200 : 502 });
 }
 
+function signatureHeaders(secret: string, body: string, now = Date.now()): Record<string, string> {
+  const timestamp = String(Math.floor(now / 1000));
+  const signature = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
+  return { "x-webhook-timestamp": timestamp, "x-webhook-signature-v2": signature };
+}
+
 async function deliver(cfg: { url: string; secret?: string }, m: OutgoingMessage) {
+  const body = JSON.stringify({ to: m.to, text: m.text, idempotency_key: m.key });
   try {
     const res = await fetch(cfg.url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "idempotency-key": m.key,
-        ...(cfg.secret ? { authorization: `Bearer ${cfg.secret}` } : {}),
+        "x-request-id": m.key,
+        ...(cfg.secret ? signatureHeaders(cfg.secret, body) : {}),
       },
-      body: JSON.stringify({ to: m.to, text: m.text, idempotency_key: m.key }),
+      body,
       signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
     });
     return { to: m.to, ok: res.ok, status: res.status };

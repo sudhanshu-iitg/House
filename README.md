@@ -21,8 +21,8 @@ behind a tap-to-reveal screen, and the timer is held until the clue-giver hides 
 
 | Variable | Where | What |
 |---|---|---|
-| `AGENT37_WEBHOOK_URL` | server | The Agent 37 agent's inbound webhook. Leave unset to play without WhatsApp |
-| `AGENT37_WEBHOOK_SECRET` | server | Sent as `Authorization: Bearer <secret>` |
+| `AGENT37_WEBHOOK_URL` | server | The Hermes webhook route on the Agent 37 instance, e.g. `https://webhooks-<id>.agent37.app/webhooks/rounds`. Leave unset to play without WhatsApp |
+| `AGENT37_WEBHOOK_SECRET` | server | The route's HMAC secret, used to sign each request |
 | `NEXT_PUBLIC_GAME_WA_NUMBER` | build | The agent's WhatsApp number with country code, e.g. `919800000000`. Used for the "say hi" QR code and link |
 
 ## What the agent receives
@@ -32,15 +32,16 @@ can't be used to send arbitrary text. It then makes one request per recipient:
 
 ```http
 POST $AGENT37_WEBHOOK_URL
-Authorization: Bearer $AGENT37_WEBHOOK_SECRET
-Idempotency-Key: <matchId>:<turn>:<kind>:<phone>
+X-Webhook-Timestamp: <unix seconds>
+X-Webhook-Signature-V2: <hex HMAC-SHA256 of "<timestamp>.<body>" with $AGENT37_WEBHOOK_SECRET>
+X-Request-ID: <matchId>:<turn>:<kind>:<phone>
 Content-Type: application/json
 
 {"to": "919812345670", "text": "🔒 Turn 5 · Your word: *MANGO*\nOne-word clues only. Don't show anyone.", "idempotency_key": "..."}
 ```
 
-The agent's skill should send `text` to `to` on WhatsApp exactly as given, skip a key it has already seen,
-and return any 2xx. Players must have messaged the game number once ("hi") so the 24-hour window is open.
+On the agent this is a Hermes webhook route with `deliver_only: true`: Hermes checks the signature, drops a
+repeated `X-Request-ID`, and sends `text` to `to` on WhatsApp exactly as given, with no LLM in the path. Players must have messaged the game number once ("hi") so the 24-hour window is open.
 
 ## Layout
 
