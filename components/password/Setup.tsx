@@ -147,7 +147,7 @@ export function Setup({
       <div className="push">
         {problem && <p className="small muted center">{problem}</p>}
         <button type="button" className="btn primary" disabled={!!problem} onClick={onNext}>
-          Next · say hi on WhatsApp
+          Next · message everyone
         </button>
       </div>
     </main>

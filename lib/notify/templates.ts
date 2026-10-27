@@ -3,6 +3,7 @@
  * send game messages, never arbitrary text. The agent only delivers them.
  */
 export type NotifyMessage =
+  | { kind: "welcome"; to: string; name: string; team: string }
   | { kind: "word"; to: string; turnNo: number; word: string }
   | { kind: "skip"; to: string; word: string }
   | { kind: "score"; to: string; teams: [string, string]; scores: [number, number]; next: string }
@@ -38,6 +39,8 @@ export function isValidPhone(digits: string): boolean {
 
 export function render(m: NotifyMessage): string {
   switch (m.kind) {
+    case "welcome":
+      return `👋 Hi ${clean(m.name)}! You're on *${clean(m.team)}* for Password tonight. Your secret words will arrive here, so keep WhatsApp handy.`;
     case "word":
       return `🔒 Turn ${num(m.turnNo)} · Your word: *${clean(m.word)}*\nOne-word clues only. Don't show anyone.`;
     case "skip":
@@ -64,6 +67,11 @@ export function parseMessage(raw: unknown): NotifyMessage | null {
   };
   const n = (v: unknown) => (typeof v === "number" ? v : null);
   switch (m.kind) {
+    case "welcome": {
+      const name = str(m.name);
+      const team = str(m.team);
+      return name && team ? { kind: "welcome", to, name, team } : null;
+    }
     case "word": {
       const word = str(m.word);
       const turnNo = n(m.turnNo);

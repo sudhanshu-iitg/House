@@ -23,11 +23,11 @@ behind a tap-to-reveal screen, and the timer is held until the clue-giver hides 
 |---|---|---|
 | `AGENT37_WEBHOOK_URL` | server | The Hermes webhook route on the Agent 37 instance, e.g. `https://webhooks-<id>.agent37.app/webhooks/rounds`. Leave unset to play without WhatsApp |
 | `AGENT37_WEBHOOK_SECRET` | server | The route's HMAC secret, used to sign each request |
-| `NEXT_PUBLIC_GAME_WA_NUMBER` | build | The agent's WhatsApp number with country code, e.g. `919800000000`. Used for the "say hi" QR code and link |
+| `NEXT_PUBLIC_GAME_WA_NUMBER` | build | The agent's WhatsApp number with country code, e.g. `919800000000`. Used for the fallback "send hi" link if a welcome message doesn't get through |
 
 ## What the agent receives
 
-`POST /api/notify` renders one of four fixed templates on the server (word, skip, score, winner), so the relay
+`POST /api/notify` renders one of five fixed templates on the server (welcome, word, skip, score, winner), so the relay
 can't be used to send arbitrary text. It then makes one request per recipient:
 
 ```http
@@ -41,12 +41,12 @@ Content-Type: application/json
 ```
 
 On the agent this is a Hermes webhook route with `deliver_only: true`: Hermes checks the signature, drops a
-repeated `X-Request-ID`, and sends `text` to `to` on WhatsApp exactly as given, with no LLM in the path. Players must have messaged the game number once ("hi") so the 24-hour window is open.
+repeated `X-Request-ID`, and sends `text` to `to` on WhatsApp exactly as given, with no LLM in the path. After setup the app sends each player a welcome message, so nobody has to message the game first.
 
 ## Layout
 
 ```
-app/                 routes: / (home), /password (setup → say hi → play), /night (tonight's board)
+app/                 routes: / (home), /password (setup → message everyone → play), /night (tonight's board)
 app/api/notify/      Agent 37 relay
 components/password/ Setup, Optin, Play screens and the useGame hook
 lib/engine/          pure game rules (reducer) + tests
