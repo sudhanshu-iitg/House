@@ -16,7 +16,8 @@ import { parseMessage, render, type OutgoingMessage } from "@/lib/notify/templat
 
 export const runtime = "nodejs";
 
-const MAX_MESSAGES = 6;
+/** Everyone in a 6-team match. */
+const MAX_MESSAGES = 12;
 const AGENT_TIMEOUT_MS = 8_000;
 
 function config() {

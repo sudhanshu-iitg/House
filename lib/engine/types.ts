@@ -1,4 +1,5 @@
-export type TeamIndex = 0 | 1;
+/** Position of a team in `Match.teams`, 0-based. */
+export type TeamIndex = number;
 
 export interface Player {
   id: string;
@@ -53,10 +54,12 @@ export interface Match {
   createdAt: number;
   settings: Settings;
   players: Player[];
-  teams: [Team, Team];
+  /** 2 to 6 teams, in turn order. */
+  teams: Team[];
   /** Which team plays turn 1. */
   startingTeam: TeamIndex;
-  scores: [number, number];
+  /** One score per team, same order as `teams`. */
+  scores: number[];
   phase: Phase;
   /** The turn being played or just finished. */
   turn: Turn | null;

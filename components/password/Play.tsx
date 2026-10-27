@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { MAX_CLUES, playerById, pointsForClue, remainingMs, skipsLeft, upNext, type Match } from "@/lib/engine";
-import { Avatar, Icon, TEAM_COLORS, TeamLabel } from "@/components/ui";
+import { Avatar, Icon, TeamLabel, TeamScores, teamColor } from "@/components/ui";
 import { EditMatch } from "./EditMatch";
 import { useGame, type Delivery } from "./useGame";
 
@@ -42,6 +42,15 @@ export function Play({ initial, onPlayAgain, onExit }: { initial: Match; onPlayA
 }
 
 function ScoreStrip({ match }: { match: Match }) {
+  const goal = match.suddenDeath ? "sudden death" : `first to ${match.settings.targetScore}`;
+  if (match.teams.length > 2) {
+    return (
+      <div className="card tight stack mt-16" style={{ borderRadius: 20, padding: "14px 16px", gap: 10 }}>
+        <span className="small muted">{goal}</span>
+        <TeamScores items={match.teams.map((t, i) => ({ name: t.name, value: match.scores[i] }))} size={24} />
+      </div>
+    );
+  }
   return (
     <div className="card tight row mt-16" style={{ borderRadius: 20, padding: "14px 16px", gap: 12 }}>
       <TeamLabel team={0} name={match.teams[0].name} />
@@ -50,7 +59,7 @@ function ScoreStrip({ match }: { match: Match }) {
       </span>
       <TeamLabel team={1} name={match.teams[1].name} align="end" />
       <span className="grow" />
-      <span className="small muted">{match.suddenDeath ? "sudden death" : `first to ${match.settings.targetScore}`}</span>
+      <span className="small muted">{goal}</span>
     </div>
   );
 }
@@ -264,7 +273,8 @@ function Reveal({ match, onDone }: { match: Match; onDone: () => void }) {
   const t = match.turn!;
   const giver = playerById(match, t.clueGiverId);
   const guesser = playerById(match, t.guesserId);
-  const other = match.teams[t.team === 0 ? 1 : 0].name;
+  const others = match.teams.filter((_, i) => i !== t.team);
+  const other = others.length === 1 ? others[0].name : "everyone else";
   return <RevealInner key={t.word} word={t.word} giver={giver.name} guesser={guesser.name} other={other} turnLabel={`Turn ${t.no} · ${match.teams[t.team].name}`} onDone={onDone} />;
 }
 
@@ -364,8 +374,8 @@ function TurnResult({ match, relayOn, onNext }: { match: Match; relayOn: boolean
         <span className="display" style={{ fontSize: 128, lineHeight: 0.85, letterSpacing: "-4px", color: t.points ? "var(--lime)" : "var(--muted)" }}>
           +{t.points}
         </span>
-        <span className="row mt-8" style={{ gap: 8, fontSize: 18, fontWeight: 700, color: TEAM_COLORS[t.team] }}>
-          <span className="dot" style={{ width: 10, height: 10, borderRadius: 5, background: TEAM_COLORS[t.team] }} />
+        <span className="row mt-8" style={{ gap: 8, fontSize: 18, fontWeight: 700, color: teamColor(t.team) }}>
+          <span className="dot" style={{ width: 10, height: 10, borderRadius: 5, background: teamColor(t.team) }} />
           {match.teams[t.team].name}
         </span>
         <span className="muted" style={{ fontSize: 15 }}>
@@ -378,14 +388,14 @@ function TurnResult({ match, relayOn, onNext }: { match: Match; relayOn: boolean
           <span>Score</span>
           <span>{match.suddenDeath ? "sudden death" : `first to ${target}`}</span>
         </div>
-        {([0, 1] as const).map((i) => (
+        {match.teams.map((_, i) => (
           <div key={i} className="stack" style={{ gap: 8 }}>
             <div className="row between" style={{ fontWeight: 700 }}>
-              <span style={{ color: TEAM_COLORS[i] }}>{match.teams[i].name}</span>
+              <span style={{ color: teamColor(i) }}>{match.teams[i].name}</span>
               <span className="tabular">{match.scores[i]}</span>
             </div>
             <div className="bar">
-              <div style={{ width: `${Math.min(100, (match.scores[i] / target) * 100)}%`, background: TEAM_COLORS[i] }} />
+              <div style={{ width: `${Math.min(100, (match.scores[i] / target) * 100)}%`, background: teamColor(i) }} />
             </div>
           </div>
         ))}
@@ -400,7 +410,7 @@ function TurnResult({ match, relayOn, onNext }: { match: Match; relayOn: boolean
       <div className="card row mt-16" style={{ borderRadius: 20, padding: 16, gap: 12 }}>
         <Avatar name={nextGiver.name} index={indexOf(match, nextGiver.id)} />
         <div className="stack" style={{ gap: 2 }}>
-          <span className="eyebrow" style={{ color: TEAM_COLORS[next.team] }}>
+          <span className="eyebrow" style={{ color: teamColor(next.team) }}>
             Up next · {match.teams[next.team].name}
           </span>
           <span style={{ fontSize: 15, fontWeight: 600 }}>
@@ -420,7 +430,7 @@ function TurnResult({ match, relayOn, onNext }: { match: Match; relayOn: boolean
 
 function Winner({ match, onPlayAgain, onExit }: { match: Match; onPlayAgain: () => void; onExit: () => void }) {
   const w = match.winner!;
-  const l = w === 0 ? 1 : 0;
+  const rest = match.scores.flatMap((s, i) => (i === w ? [] : [{ i, s }])).sort((a, b) => b.s - a.s);
   const names = match.teams[w].playerIds.map((id) => playerById(match, id).name);
   const skips = match.history.reduce((n, t) => n + t.skipped.length, 0);
 
@@ -433,8 +443,8 @@ function Winner({ match, onPlayAgain, onExit }: { match: Match; onPlayAgain: () 
       </span>
 
       <div className="stack mt-24" style={{ gap: 6 }}>
-        <span className="row" style={{ gap: 8, fontSize: 15, fontWeight: 700, color: TEAM_COLORS[w] }}>
-          <span className="dot" style={{ width: 10, height: 10, borderRadius: 5, background: TEAM_COLORS[w] }} />
+        <span className="row" style={{ gap: 8, fontSize: 15, fontWeight: 700, color: teamColor(w) }}>
+          <span className="dot" style={{ width: 10, height: 10, borderRadius: 5, background: teamColor(w) }} />
           {names.join(" & ")}
         </span>
         <h1 className="display" style={{ margin: 0, fontSize: 56, lineHeight: 0.98, letterSpacing: "-1.5px" }}>
@@ -448,12 +458,16 @@ function Winner({ match, onPlayAgain, onExit }: { match: Match; onPlayAgain: () 
         <span className="display tabular" style={{ fontSize: 72 }}>
           {match.scores[w]}
         </span>
-        <span className="muted" style={{ fontSize: 28 }}>
-          –
-        </span>
-        <span className="display tabular" style={{ fontSize: 72, color: TEAM_COLORS[l] }}>
-          {match.scores[l]}
-        </span>
+        {rest.map((r) => (
+          <span key={r.i} className="row" style={{ alignItems: "baseline", gap: 12 }}>
+            <span className="muted" style={{ fontSize: 28 }}>
+              –
+            </span>
+            <span className="display tabular" style={{ fontSize: rest.length > 1 ? 40 : 72, color: teamColor(r.i) }}>
+              {r.s}
+            </span>
+          </span>
+        ))}
       </div>
 
       <div className="card mt-24" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: "18px 20px" }}>

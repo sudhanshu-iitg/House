@@ -6,8 +6,9 @@ export type NotifyMessage =
   | { kind: "welcome"; to: string; name: string; team: string }
   | { kind: "word"; to: string; turnNo: number; word: string }
   | { kind: "skip"; to: string; word: string }
-  | { kind: "score"; to: string; teams: [string, string]; scores: [number, number]; next: string }
-  | { kind: "winner"; to: string; team: string; scores: [number, number]; tally: string };
+  | { kind: "score"; to: string; teams: string[]; scores: number[]; next: string }
+  /** `scores` starts with the winner's, then the rest from high to low. */
+  | { kind: "winner"; to: string; team: string; scores: number[]; tally: string };
 
 export interface OutgoingMessage {
   to: string;
@@ -17,6 +18,8 @@ export interface OutgoingMessage {
 }
 
 const MAX_FIELD = 40;
+/** Matches have 2 to 6 teams. */
+const MAX_TEAMS = 6;
 
 function clean(s: string): string {
   return String(s).replace(/[*_~`\n\r]/g, "").slice(0, MAX_FIELD).trim();
@@ -46,9 +49,12 @@ export function render(m: NotifyMessage): string {
     case "skip":
       return `🔁 New word: *${clean(m.word)}*`;
     case "score":
-      return `${clean(m.teams[0])} ${num(m.scores[0])} – ${num(m.scores[1])} ${clean(m.teams[1])} · Next: ${clean(m.next)} gives clues`;
+      if (m.teams.length === 2) {
+        return `${clean(m.teams[0])} ${num(m.scores[0])} – ${num(m.scores[1])} ${clean(m.teams[1])} · Next: ${clean(m.next)} gives clues`;
+      }
+      return `${m.teams.map((t, i) => `${clean(t)} ${num(m.scores[i])}`).join(" · ")}\nNext: ${clean(m.next)} gives clues`;
     case "winner":
-      return `🏆 ${clean(m.team)} wins ${num(m.scores[0])}–${num(m.scores[1])}! ${clean(m.tally)}`;
+      return `🏆 ${clean(m.team)} wins ${m.scores.map(num).join("–")}! ${clean(m.tally)}`;
   }
 }
 
@@ -59,11 +65,10 @@ export function parseMessage(raw: unknown): NotifyMessage | null {
   const to = typeof m.to === "string" ? m.to : "";
   if (!isValidPhone(to)) return null;
   const str = (v: unknown) => (typeof v === "string" && v.length <= 200 ? v : null);
-  const pair = <T,>(v: unknown, check: (x: unknown) => T | null): [T, T] | null => {
-    if (!Array.isArray(v) || v.length !== 2) return null;
-    const a = check(v[0]);
-    const b = check(v[1]);
-    return a === null || b === null ? null : [a, b];
+  const many = <T,>(v: unknown, check: (x: unknown) => T | null): T[] | null => {
+    if (!Array.isArray(v) || v.length < 2 || v.length > MAX_TEAMS) return null;
+    const out = v.map(check);
+    return out.some((x) => x === null) ? null : (out as T[]);
   };
   const n = (v: unknown) => (typeof v === "number" ? v : null);
   switch (m.kind) {
@@ -82,14 +87,14 @@ export function parseMessage(raw: unknown): NotifyMessage | null {
       return word ? { kind: "skip", to, word } : null;
     }
     case "score": {
-      const teams = pair(m.teams, str);
-      const scores = pair(m.scores, n);
+      const teams = many(m.teams, str);
+      const scores = many(m.scores, n);
       const next = str(m.next);
-      return teams && scores && next ? { kind: "score", to, teams, scores, next } : null;
+      return teams && scores && teams.length === scores.length && next ? { kind: "score", to, teams, scores, next } : null;
     }
     case "winner": {
       const team = str(m.team);
-      const scores = pair(m.scores, n);
+      const scores = many(m.scores, n);
       const tally = str(m.tally);
       return team && scores && tally !== null ? { kind: "winner", to, team, scores, tally } : null;
     }

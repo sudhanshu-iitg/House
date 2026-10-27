@@ -1,6 +1,6 @@
 # Rounds
 
-One app for a whole game night. v1 ships one game, **Password**: two teams of two, played on the host's phone.
+One app for a whole game night. v1 ships one game, **Password**: 2 to 6 teams of two, played on the host's phone.
 The clue-giver gets the secret word on WhatsApp from an Agent 37 agent. Rules and scoring live only in the app.
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the product plan and the decisions behind it.

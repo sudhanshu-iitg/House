@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { shuffle, type Settings } from "@/lib/engine";
+import { MAX_TEAMS, MIN_TEAMS, shuffle, type Settings } from "@/lib/engine";
 import { LEVELS, PACKS } from "@/lib/words";
 import type { CrewMember } from "@/lib/store";
-import { Avatar, Icon, TEAM_COLORS, TopBar } from "@/components/ui";
+import { Avatar, Icon, TopBar, teamColor } from "@/components/ui";
 
 export interface Draft {
-  teamNames: [string, string];
-  /** Slots 0–1 are the first team, 2–3 the second. */
+  /** 2 to 6 teams of 2. */
+  teamNames: string[];
+  /** Two per team: slots 0–1 are the first team, 2–3 the second, and so on. */
   slots: CrewMember[];
   settings: Settings;
 }
@@ -16,12 +17,25 @@ export interface Draft {
 const TIMER_OPTIONS = [20, 30, 45, 60];
 const TARGET_OPTIONS = [10, 15, 20, 25];
 const SKIP_OPTIONS = [0, 1, 2];
+const TEAM_COUNTS = Array.from({ length: MAX_TEAMS - MIN_TEAMS + 1 }, (_, i) => MIN_TEAMS + i);
+export const DEFAULT_TEAM_NAMES = ["Team Chai", "Team Coffee", "Team Lassi", "Team Nimbu", "Team Thandai", "Team Kulfi"];
+const EMPTY_SLOT: CrewMember = { name: "", phone: "" };
+
+/** Resizes a draft to `n` teams, keeping the teams and players already filled in. */
+export function withTeamCount(d: Draft, n: number, crew: CrewMember[] = []): Draft {
+  const teamNames = Array.from({ length: n }, (_, t) => d.teamNames[t] ?? DEFAULT_TEAM_NAMES[t]);
+  const taken = new Set(d.slots.map((s) => s.name.trim().toLowerCase()).filter(Boolean));
+  const spare = crew.filter((c) => !taken.has(c.name.trim().toLowerCase()));
+  const slots = Array.from({ length: n * 2 }, (_, i) => d.slots[i] ?? spare.shift() ?? EMPTY_SLOT);
+  return { ...d, teamNames, slots };
+}
 
 export function draftProblem(d: Draft): string | null {
   const names = d.slots.map((s) => s.name.trim());
-  if (names.some((n) => !n)) return "Add all 4 names";
+  if (names.some((n) => !n)) return `Add all ${names.length} names`;
   if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) return "Names must be different";
-  if (d.teamNames.some((t) => !t.trim()) || d.teamNames[0].trim().toLowerCase() === d.teamNames[1].trim().toLowerCase()) {
+  const teams = d.teamNames.map((t) => t.trim().toLowerCase());
+  if (teams.some((t) => !t) || new Set(teams).size !== teams.length) {
     return "Give the teams different names";
   }
   return null;
@@ -45,13 +59,13 @@ export function Setup({
   const setSlot = (i: number, patch: Partial<CrewMember>) =>
     onChange({ ...draft, slots: draft.slots.map((slot, k) => (k === i ? { ...slot, ...patch } : slot)) });
   const setSettings = (patch: Partial<Settings>) => onChange({ ...draft, settings: { ...s, ...patch } });
-  const setTeamName = (t: 0 | 1, name: string) => {
-    const teamNames: [string, string] = [...draft.teamNames];
+  const setTeamName = (t: number, name: string) => {
+    const teamNames = [...draft.teamNames];
     teamNames[t] = name;
     onChange({ ...draft, teamNames });
   };
   const fillFromCrew = () => {
-    const recent = crew.slice(0, 4);
+    const recent = crew.slice(0, draft.slots.length);
     onChange({ ...draft, slots: draft.slots.map((slot, i) => recent[i] ?? slot) });
   };
 
@@ -63,14 +77,23 @@ export function Setup({
         Names and WhatsApp numbers. We&apos;ll remember them next time.
       </p>
 
-      {([0, 1] as const).map((t) => (
+      <span className="eyebrow mt-20">Teams</span>
+      <div className="row wrap mt-8" style={{ gap: 8 }}>
+        {TEAM_COUNTS.map((n) => (
+          <button key={n} type="button" className="chip" aria-pressed={draft.teamNames.length === n} onClick={() => onChange(withTeamCount(draft, n, crew))}>
+            {n} teams
+          </button>
+        ))}
+      </div>
+
+      {draft.teamNames.map((_, t) => (
         <div key={t} className="card stack mt-16" style={{ borderRadius: 22, padding: "14px 16px" }}>
           <label className="row" style={{ gap: 8 }}>
-            <span className="dot" style={{ background: TEAM_COLORS[t] }} />
+            <span className="dot" style={{ background: teamColor(t) }} />
             <span className="sr-only">Team {t + 1} name</span>
             <input
               className="field bare"
-              style={{ color: TEAM_COLORS[t], fontSize: 14 }}
+              style={{ color: teamColor(t), fontSize: 14 }}
               value={draft.teamNames[t]}
               maxLength={20}
               onChange={(e) => setTeamName(t, e.target.value)}

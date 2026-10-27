@@ -5,18 +5,16 @@ import { useEffect, useState } from "react";
 import { createMatch, DEFAULT_SETTINGS, type Match, type Player } from "@/lib/engine";
 import { isValidPhone, normalizePhone } from "@/lib/notify/templates";
 import { loadCrew, loadMatch, logEvent, rememberCrew, saveMatch, type CrewMember } from "@/lib/store";
-import { Setup, type Draft } from "@/components/password/Setup";
+import { DEFAULT_TEAM_NAMES, Setup, type Draft } from "@/components/password/Setup";
 import { Optin } from "@/components/password/Optin";
 import { Play } from "@/components/password/Play";
 
 type Stage = { name: "loading" } | { name: "setup" } | { name: "optin" } | { name: "play"; match: Match };
 
-const EMPTY_SLOT: CrewMember = { name: "", phone: "" };
-
 function newDraft(crew: CrewMember[]): Draft {
   return {
-    teamNames: ["Team Chai", "Team Coffee"],
-    slots: [0, 1, 2, 3].map((i) => crew[i] ?? EMPTY_SLOT),
+    teamNames: DEFAULT_TEAM_NAMES.slice(0, 2),
+    slots: [0, 1, 2, 3].map((i) => crew[i] ?? { name: "", phone: "" }),
     settings: DEFAULT_SETTINGS,
   };
 }
@@ -34,10 +32,7 @@ function matchFromDraft(d: Draft): Match {
     id: newId(),
     now: Date.now(),
     players,
-    teams: [
-      { name: d.teamNames[0].trim(), playerIds: ["p0", "p1"] },
-      { name: d.teamNames[1].trim(), playerIds: ["p2", "p3"] },
-    ],
+    teams: d.teamNames.map((name, t) => ({ name: name.trim(), playerIds: [`p${t * 2}`, `p${t * 2 + 1}`] })),
     settings: d.settings,
   });
 }
@@ -84,14 +79,14 @@ export default function PasswordPage() {
           key={stage.match.id}
           initial={stage.match}
           onPlayAgain={(prev) => {
-            // Same crew; the other team goes first this time.
+            // Same crew; the next team goes first this time.
             const again = createMatch({
               id: newId(),
               now: Date.now(),
               players: prev.players,
               teams: prev.teams,
               settings: prev.settings,
-              startingTeam: prev.startingTeam === 0 ? 1 : 0,
+              startingTeam: (prev.startingTeam + 1) % prev.teams.length,
             });
             start(again);
           }}

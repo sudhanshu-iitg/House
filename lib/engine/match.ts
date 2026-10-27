@@ -1,6 +1,8 @@
 import type { Match, Player, Settings, Team, TeamIndex, Turn, TurnOutcome } from "./types";
 
 export const MAX_CLUES = 3;
+export const MIN_TEAMS = 2;
+export const MAX_TEAMS = 6;
 
 export const DEFAULT_SETTINGS: Settings = {
   turnSeconds: 30,
@@ -19,10 +21,11 @@ export function createMatch(opts: {
   id: string;
   now: number;
   players: Player[];
-  teams: [Team, Team];
+  teams: Team[];
   settings?: Partial<Settings>;
   startingTeam?: TeamIndex;
 }): Match {
+  if (opts.teams.length < MIN_TEAMS || opts.teams.length > MAX_TEAMS) throw new Error(`Play with ${MIN_TEAMS} to ${MAX_TEAMS} teams`);
   for (const team of opts.teams) {
     if (team.playerIds.length < 2) throw new Error(`${team.name} needs at least 2 players`);
   }
@@ -33,7 +36,7 @@ export function createMatch(opts: {
     players: opts.players,
     teams: opts.teams,
     startingTeam: opts.startingTeam ?? 0,
-    scores: [0, 0],
+    scores: opts.teams.map(() => 0),
     phase: "ready",
     turn: null,
     history: [],
@@ -42,11 +45,12 @@ export function createMatch(opts: {
   };
 }
 
-/** Who plays turn number `no` (1-based). Teams alternate; within a team the clue-giver rotates. */
+/** Who plays turn number `no` (1-based). Teams take turns in order; within a team the clue-giver rotates. */
 export function lineupFor(match: Match, no: number): { team: TeamIndex; clueGiverId: string; guesserId: string } {
-  const team = ((match.startingTeam + no - 1) % 2) as TeamIndex;
+  const n = match.teams.length;
+  const team = (match.startingTeam + no - 1) % n;
   const ids = match.teams[team].playerIds;
-  const k = Math.floor((no - 1) / 2);
+  const k = Math.floor((no - 1) / n);
   return {
     team,
     clueGiverId: ids[k % ids.length],
@@ -155,23 +159,23 @@ function live(match: Match, fn: (turn: Turn) => Match): Match {
 
 function finishTurn(match: Match, turn: Turn, outcome: TurnOutcome, points: number): Match {
   const done: Turn = { ...turn, outcome, points, endsAt: null, pausedMs: null };
-  const scores: [number, number] = [...match.scores];
+  const scores = [...match.scores];
   scores[turn.team] += points;
   const next: Match = { ...match, scores, turn: done, history: [...match.history, done], phase: "result" };
   return checkWinner(next);
 }
 
 /**
- * The win is checked only once both teams have played the round, so going first is no advantage.
- * A team at or over the target with the higher score wins; level scores at or over the target
- * go to sudden death, which is the same check after every following round.
+ * The win is checked only once every team has played the round, so going first is no advantage.
+ * The single top team at or over the target wins; a tie for the top at or over the target goes to
+ * sudden death, which is the same check after every following round.
  */
 function checkWinner(match: Match): Match {
-  const roundComplete = match.history.length % 2 === 0;
+  const roundComplete = match.history.length % match.teams.length === 0;
   if (!roundComplete) return match;
-  const [a, b] = match.scores;
-  const target = match.settings.targetScore;
-  if (Math.max(a, b) < target) return match;
-  if (a === b) return { ...match, suddenDeath: true };
-  return { ...match, phase: "over", winner: a > b ? 0 : 1 };
+  const top = Math.max(...match.scores);
+  if (top < match.settings.targetScore) return match;
+  const leaders = match.scores.flatMap((s, i) => (s === top ? [i] : []));
+  if (leaders.length > 1) return { ...match, suddenDeath: true };
+  return { ...match, phase: "over", winner: leaders[0] };
 }

@@ -176,3 +176,57 @@ describe("edit", () => {
     expect(reduce(m, { type: "edit", settings: { level: "easy" } })).toBe(m);
   });
 });
+
+describe("more than two teams", () => {
+  function threeTeams(target = 15): Match {
+    return createMatch({
+      id: "m3",
+      now: 0,
+      players: [...players, { id: "x", name: "Zoya", phone: "" }, { id: "y", name: "Dev", phone: "" }],
+      teams: [
+        { name: "Chai", playerIds: ["p", "a"] },
+        { name: "Coffee", playerIds: ["r", "k"] },
+        { name: "Lassi", playerIds: ["x", "y"] },
+      ],
+      settings: { targetScore: target },
+    });
+  }
+
+  it("rotates through every team, then swaps roles within each", () => {
+    const m = threeTeams();
+    expect(m.scores).toEqual([0, 0, 0]);
+    expect([1, 2, 3, 4].map((no) => lineupFor(m, no))).toEqual([
+      { team: 0, clueGiverId: "p", guesserId: "a" },
+      { team: 1, clueGiverId: "r", guesserId: "k" },
+      { team: 2, clueGiverId: "x", guesserId: "y" },
+      { team: 0, clueGiverId: "a", guesserId: "p" },
+    ]);
+  });
+
+  it("lets the last team play before declaring a winner", () => {
+    let m = threeTeams(3);
+    m = playTurn(m, 1); // Chai 3
+    m = playTurn(m, null);
+    expect(m.phase).toBe("ready");
+    m = playTurn(m, 2); // Lassi 2
+    expect(m.phase).toBe("over");
+    expect(m.winner).toBe(0);
+  });
+
+  it("goes to sudden death when two teams tie for the top", () => {
+    let m = threeTeams(3);
+    m = playTurn(m, 1);
+    m = playTurn(m, 3); // Coffee 1
+    m = playTurn(m, 1); // Lassi 3
+    expect(m.phase).toBe("ready");
+    expect(m.suddenDeath).toBe(true);
+  });
+
+  it("allows 2 to 6 teams", () => {
+    const team = (i: number) => ({ name: `T${i}`, playerIds: ["p", "a"] });
+    const make = (n: number) => () => createMatch({ id: "x", now: 0, players, teams: Array.from({ length: n }, (_, i) => team(i)) });
+    expect(make(1)).toThrow();
+    expect(make(6)).not.toThrow();
+    expect(make(7)).toThrow();
+  });
+});

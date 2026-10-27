@@ -59,8 +59,8 @@ function dedupe(list: CrewMember[]) {
 export interface NightMatch {
   id: string;
   at: number;
-  teams: [string, string];
-  scores: [number, number];
+  teams: string[];
+  scores: number[];
   winner: TeamIndex;
   suddenDeath: boolean;
   /** Points each player earned as clue-giver, by name. */
@@ -99,7 +99,7 @@ export function recordMatch(match: Match, now = Date.now()): Night {
       {
         id: match.id,
         at: now,
-        teams: [match.teams[0].name, match.teams[1].name],
+        teams: match.teams.map((t) => t.name),
         scores: match.scores,
         winner: match.winner,
         suddenDeath: match.suddenDeath,
@@ -111,11 +111,11 @@ export function recordMatch(match: Match, now = Date.now()): Night {
   return next;
 }
 
-/** 0 or 1: the colour slot a team had in its most recent match. */
-export function teamSlot(night: Night, team: string): 0 | 1 {
+/** The colour slot a team had in its most recent match. */
+export function teamSlot(night: Night, team: string): TeamIndex {
   for (let i = night.matches.length - 1; i >= 0; i--) {
     const k = night.matches[i].teams.indexOf(team);
-    if (k >= 0) return k as 0 | 1;
+    if (k >= 0) return k;
   }
   return 0;
 }
@@ -123,8 +123,8 @@ export function teamSlot(night: Night, team: string): 0 | 1 {
 export const clearNight = () => write(KEYS.night, null);
 
 export interface Tally {
-  /** The latest match's two teams, in their in-game order, so colours match the game. */
-  pair: [{ team: string; wins: number }, { team: string; wins: number }] | null;
+  /** The latest match's teams, in their in-game order, so colours match the game. */
+  latest: { team: string; wins: number }[];
   wins: { team: string; wins: number }[];
   players: { name: string; points: number }[];
 }
@@ -138,12 +138,9 @@ export function tallyNight(night: Night): Tally {
     wins.set(w, (wins.get(w) ?? 0) + 1);
     for (const [name, pts] of Object.entries(m.cluePoints)) points.set(name, (points.get(name) ?? 0) + pts);
   }
-  const latest = night.matches.at(-1);
-  const pair = latest
-    ? (latest.teams.map((team) => ({ team, wins: wins.get(team) ?? 0 })) as Tally["pair"])
-    : null;
+  const latest = (night.matches.at(-1)?.teams ?? []).map((team) => ({ team, wins: wins.get(team) ?? 0 }));
   return {
-    pair,
+    latest,
     wins: [...wins].map(([team, n]) => ({ team, wins: n })).sort((a, b) => b.wins - a.wins),
     players: [...points].map(([name, p]) => ({ name, points: p })).sort((a, b) => b.points - a.points),
   };

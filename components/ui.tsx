@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const TEAM_COLORS = ["var(--coral)", "var(--sky)"] as const;
+/** One colour per team slot, up to 6 teams. */
+export const TEAM_COLORS = ["var(--coral)", "var(--sky)", "var(--lime)", "#C9A4FF", "#FFB86B", "#5FE0B7"] as const;
+
+export function teamColor(index: number) {
+  return TEAM_COLORS[index % TEAM_COLORS.length];
+}
 const AVATAR_COLORS = ["#FF7A6B", "#7AC8FF", "#D9F04F", "#F4EFE8", "#C9A4FF", "#FFB86B"];
 
 export function avatarColor(index: number) {
@@ -20,14 +25,30 @@ export function Avatar({ name, index, size = 36 }: { name: string; index: number
   );
 }
 
-export function TeamLabel({ team, name, align = "start" }: { team: 0 | 1; name: string; align?: "start" | "end" }) {
-  const dot = <span className="dot" style={{ background: TEAM_COLORS[team] }} />;
+export function TeamLabel({ team, name, align = "start" }: { team: number; name: string; align?: "start" | "end" }) {
+  const dot = <span className="dot" style={{ background: teamColor(team) }} />;
   return (
-    <span className="row small" style={{ gap: 6, fontWeight: 700, color: TEAM_COLORS[team] }}>
+    <span className="row small" style={{ gap: 6, fontWeight: 700, color: teamColor(team) }}>
       {align === "start" && dot}
       {name}
       {align === "end" && dot}
     </span>
+  );
+}
+
+/** Each team's name over a big number, in team order. Two teams sit side by side, more wrap in rows of 3. */
+export function TeamScores({ items, size = 36 }: { items: { name: string; value: number }[]; size?: number }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, minmax(0, 1fr))`, gap: "12px 10px" }}>
+      {items.map((t, i) => (
+        <div key={i} className="stack" style={{ gap: 2, minWidth: 0 }}>
+          <TeamLabel team={i} name={t.name} />
+          <span className="display tabular" style={{ fontSize: size, lineHeight: 1 }}>
+            {t.value}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -18,7 +18,7 @@ export function Optin({ draft, onBack, onStart }: { draft: Draft; onBack: () => 
 
   const players = draft.slots.map((s, i) => {
     const phone = normalizePhone(s.phone);
-    return { ...s, i, phone, phoneOk: isValidPhone(phone), team: draft.teamNames[i < 2 ? 0 : 1].trim() };
+    return { ...s, i, phone, phoneOk: isValidPhone(phone), team: draft.teamNames[Math.floor(i / 2)].trim() };
   });
   const withPhone = players.filter((p) => p.phoneOk);
   const sent = withPhone.filter((p) => status[p.i] === "sent").length;

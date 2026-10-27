@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Match } from "@/lib/engine";
 import { loadMatch, loadNight, tallyNight, type Night } from "@/lib/store";
-import { Icon, TeamLabel } from "@/components/ui";
+import { Icon, TeamScores } from "@/components/ui";
 
 export default function Home() {
   const [night, setNight] = useState<Night | null>(null);
@@ -34,7 +34,7 @@ export default function Home() {
         </h1>
       </div>
 
-      {tally?.pair ? (
+      {tally && tally.latest.length > 0 ? (
         <Link href="/night" className="card mt-24 stack" style={{ gap: 14 }}>
           <div className="row between small muted">
             <span>Tonight&apos;s tally</span>
@@ -42,21 +42,7 @@ export default function Home() {
               {night!.matches.length} {night!.matches.length === 1 ? "match" : "matches"}
             </span>
           </div>
-          <div className="row between">
-            <div className="stack" style={{ gap: 2 }}>
-              <TeamLabel team={0} name={tally.pair[0].team} />
-              <span className="display" style={{ fontSize: 36 }}>
-                {tally.pair[0].wins}
-              </span>
-            </div>
-            <span className="small muted">vs</span>
-            <div className="stack" style={{ gap: 2, alignItems: "flex-end" }}>
-              <TeamLabel team={1} name={tally.pair[1].team} align="end" />
-              <span className="display" style={{ fontSize: 36 }}>
-                {tally.pair[1].wins}
-              </span>
-            </div>
-          </div>
+          <TeamScores items={tally.latest.map((w) => ({ name: w.team, value: w.wins }))} />
         </Link>
       ) : (
         <div className="card mt-24 small muted">No matches yet tonight. The first winner gets bragging rights.</div>
@@ -84,7 +70,7 @@ export default function Home() {
           <Icon name="lock" size={36} />
           {match && (
             <span className="small" style={{ fontWeight: 700, border: "1.5px solid var(--dark)", borderRadius: 12, padding: "4px 8px" }}>
-              {match.scores[0]} – {match.scores[1]}
+              {match.scores.join(" – ")}
             </span>
           )}
         </div>
@@ -92,7 +78,7 @@ export default function Home() {
           <span className="display" style={{ fontSize: 32 }}>
             Password
           </span>
-          <span style={{ fontSize: 14, fontWeight: 500 }}>2 teams of 2 · 15 min · words on WhatsApp</span>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>2–6 teams of 2 · 15 min · words on WhatsApp</span>
         </div>
       </Link>
 

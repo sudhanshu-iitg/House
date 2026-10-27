@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { clearNight, loadNight, tallyNight, teamSlot, type Night } from "@/lib/store";
-import { Avatar, TEAM_COLORS, TopBar } from "@/components/ui";
+import { Avatar, TeamScores, TopBar, teamColor as slotColor } from "@/components/ui";
 
 export default function NightPage() {
   const [night, setNight] = useState<Night | null>(null);
@@ -16,7 +16,7 @@ export default function NightPage() {
 
   const tally = night ? tallyNight(night) : null;
   const date = new Date(night?.startedAt ?? Date.now()).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-  const teamColor = (name: string) => TEAM_COLORS[night ? teamSlot(night, name) : 0];
+  const teamColor = (name: string) => slotColor(night ? teamSlot(night, name) : 0);
 
   const share = async () => {
     if (!night || !tally) return;
@@ -47,22 +47,9 @@ export default function NightPage() {
 
       {tally && night && (
         <>
-          <div className="card row mt-20" style={{ gap: 12 }}>
-            {(tally.pair ?? []).map((w, i) => (
-              <div key={w.team} className="stack grow" style={{ gap: 2, alignItems: i === 1 ? "flex-end" : "flex-start", order: i === 1 ? 3 : 1 }}>
-                <span className="row small" style={{ gap: 6, fontWeight: 600, color: TEAM_COLORS[i] }}>
-                  {w.team}
-                </span>
-                <span className="display" style={{ fontSize: 56 }}>
-                  {w.wins}
-                </span>
-              </div>
-            ))}
-            <span className="small muted center" style={{ order: 2 }}>
-              matches
-              <br />
-              won
-            </span>
+          <div className="card stack mt-20" style={{ gap: 12 }}>
+            <span className="small muted">Matches won</span>
+            <TeamScores items={tally.latest.map((w) => ({ name: w.team, value: w.wins }))} size={48} />
           </div>
 
           <span className="eyebrow mt-24">Matches</span>
@@ -77,7 +64,7 @@ export default function NightPage() {
                   {m.suddenDeath && <span className="small muted" style={{ fontSize: 12 }}>Sudden death</span>}
                 </span>
                 <span className="tabular" style={{ fontWeight: 700 }}>
-                  {Math.max(...m.scores)} – {Math.min(...m.scores)}
+                  {[...m.scores].sort((a, b) => b - a).join(" – ")}
                 </span>
               </div>
             ))}

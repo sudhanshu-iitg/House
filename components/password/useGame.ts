@@ -71,15 +71,15 @@ export function useGame(initial: Match) {
         seconds: Math.round((Date.now() - t.startedAt) / 1000),
         skips: t.skipped.length,
       });
-      const teams: [string, string] = [m.teams[0].name, m.teams[1].name];
+      const teams = m.teams.map((t) => t.name);
       if (m.phase === "over" && m.winner !== null) {
         const night = recordMatch(m);
         logEvent("match_completed", { turns: m.history.length, suddenDeath: m.suddenDeath });
         const tally = tallyNight(night)
           .wins.map((w) => `${w.team} ${w.wins}`)
           .join(", ");
-        const s = m.scores;
-        const scores: [number, number] = m.winner === 0 ? [s[0], s[1]] : [s[1], s[0]];
+        const w = m.winner;
+        const scores = [m.scores[w], ...m.scores.filter((_, i) => i !== w).sort((a, b) => b - a)];
         notifyAll(m, `${m.id}:${t.no}:winner`, (to) => ({ kind: "winner", to, team: teams[m.winner!], scores, tally: `Tonight: ${tally}` }));
       } else {
         const next = playerById(m, upNext(m).clueGiverId).name;
