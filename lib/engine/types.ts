@@ -13,11 +13,15 @@ export interface Team {
   playerIds: string[];
 }
 
+export type Level = "easy" | "mixed" | "tricky";
+
 export interface Settings {
   turnSeconds: number;
   targetScore: number;
   skipsPerTurn: number;
   packId: string;
+  /** How hard the words are. Missing on matches saved before it existed, which play as mixed. */
+  level?: Level;
 }
 
 export type TurnOutcome = "correct" | "missed" | "timeout";

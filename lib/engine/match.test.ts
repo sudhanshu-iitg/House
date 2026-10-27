@@ -160,3 +160,19 @@ describe("deck", () => {
     expect(drawWord(["A", "B"], new Set(["A", "B"]), () => 0)).toBe("A");
   });
 });
+
+describe("edit", () => {
+  it("changes the pack, level and a player's number between turns, keeping the score", () => {
+    let m = playTurn(newMatch(), 1);
+    m = reduce(m, { type: "edit", settings: { packId: "food", level: "tricky" }, phones: { a: "919812345678" } });
+    expect(m.settings).toMatchObject({ packId: "food", level: "tricky", targetScore: 15 });
+    expect(m.players.find((p) => p.id === "a")?.phone).toBe("919812345678");
+    expect(m.players.find((p) => p.id === "p")?.phone).toBe("");
+    expect(m.scores).toEqual([3, 0]);
+  });
+
+  it("is ignored while a turn is live", () => {
+    const m = reduce(newMatch(), { type: "start_turn", word: "MANGO", now: 0 });
+    expect(reduce(m, { type: "edit", settings: { level: "easy" } })).toBe(m);
+  });
+});

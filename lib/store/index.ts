@@ -152,7 +152,7 @@ export function tallyNight(night: Night): Tally {
 // --- Local-only analytics --------------------------------------------------
 
 export interface LocalEvent {
-  name: "match_started" | "match_completed" | "turn_finished" | "skip_used" | "reveal_used" | "notify_failed";
+  name: "match_started" | "match_completed" | "turn_finished" | "skip_used" | "reveal_used" | "notify_failed" | "match_edited";
   at: number;
   data?: Record<string, string | number | boolean>;
 }

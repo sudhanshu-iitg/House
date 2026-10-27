@@ -1,12 +1,26 @@
+import type { Level } from "@/lib/engine/types";
+
+export const LEVELS: readonly { id: Level; name: string }[] = [
+  { id: "easy", name: "Easy" },
+  { id: "mixed", name: "Mixed" },
+  { id: "tricky", name: "Tricky" },
+];
+
 export interface WordPack {
   id: string;
   name: string;
   words: readonly string[];
+  /** The harder words in `words`. The rest count as easy. */
+  tricky: ReadonlySet<string>;
 }
 
-function pack(id: string, name: string, list: string): WordPack {
-  const words = Array.from(new Set(list.split(/\s*,\s*/).map((w) => w.trim().toUpperCase()).filter(Boolean)));
-  return { id, name, words };
+function list(s: string): string[] {
+  return Array.from(new Set(s.split(/\s*,\s*/).map((w) => w.trim().toUpperCase()).filter(Boolean)));
+}
+
+function pack(id: string, name: string, words: string, tricky: string): WordPack {
+  const all = list(words);
+  return { id, name, words: all, tricky: new Set(list(tricky).filter((w) => all.includes(w))) };
 }
 
 export const PACKS: readonly WordPack[] = [
@@ -28,6 +42,10 @@ export const PACKS: readonly WordPack[] = [
     phone, picnic, pig, pilot, pipe, pizza, police, prince, pumpkin, queen, radio, rain, ring, roof, rope, salt,
     sand, scissors, ship, shirt, singer, sky, soap, soldier, square, stone, sweater, tail, teacher, tent, thunder,
     tiles, toast, tomato, torch, tractor, tree, trophy, truck, vase, wall, watch, water, whale, wheel, wing, yoga`,
+    `iceberg, chimney, compass, saddle, signal, skeleton, magnet, needle, parachute, envelope, fountain, bandage,
+    battery, anchor, cushion, tractor, tiles, jewel, captain, dentist, whistle, wagon, valley, volcano, treasure,
+    tunnel, shadow, painter, market, medal, museum, library, garage, square, stamp, chain, blade, pipe, torch,
+    cotton, net, nest, earth, signal, soldier, circus, cactus, helmet, silver`,
   ),
   pack(
     "bollywood",
@@ -44,6 +62,11 @@ export const PACKS: readonly WordPack[] = [
     villain, hero entry, slow motion, rain song, mother's blessing, climax, sequel, flashback, filmfare,
     box office, playback singer, dance-off, superstar, director, producer, choreographer, stuntman, dialogue,
     remake, sequel, double role, lost and found, wedding song, intermission, paparazzi, red carpet`,
+    `tumbbad, lootera, highway, tamasha, paheli, piku, kahaani, article 15, badhaai ho, bala, raazi, satya,
+    company, sarkar, black, guru, roja, dil se, bombay, taal, rangeela, lakshya, border, gadar, wake up sid,
+    gangs of wasseypur, andhadhun, swades, playback singer, choreographer, intermission, paparazzi, double role,
+    lost and found, flashback, remake, mother's blessing, slow motion, hero entry, item song, interval, stuntman,
+    dream girl, article 15, guru, tubelight, mohabbatein, veer zaara`,
   ),
   pack(
     "food",
@@ -59,6 +82,10 @@ export const PACKS: readonly WordPack[] = [
     toast, omelette, cereal, porridge, salad, soup, steak, fries, ketchup, mayonnaise, mustard, cheese,
     butter, honey, jam, bread, bagel, pretzel, milkshake, smoothie, lemonade, sugarcane juice, kulfi, falooda,
     barfi, ladoo, modak, peda, sandesh, chikki, gajak, rabri, shrikhand, mishti doi`,
+    `appam, puttu, pongal, thepla, khakhra, jaggery, cardamom, saffron, turmeric, cumin, okra, brinjal, jackfruit,
+    lychee, pomegranate, croissant, pretzel, bagel, porridge, falooda, modak, peda, sandesh, chikki, gajak, rabri,
+    shrikhand, mishti doi, vindaloo, korma, rasam, upma, sugarcane juice, mustard, mayonnaise, cheesecake, thepla,
+    raita, papad, ghee`,
   ),
   pack(
     "hard",
@@ -75,9 +102,20 @@ export const PACKS: readonly WordPack[] = [
     resume, interview, promotion, retirement, hobby, habit, routine, tradition, festival, pilgrimage, karaoke,
     marathon, referee, penalty, umpire, sixer, googly, checkmate, stalemate, origami, graffiti, podcast,
     meme, selfie, hashtag, influencer, binge, spoiler, cliffhanger, plot twist, cameo, encore, standing ovation`,
+    `democracy, nostalgia, irony, silhouette, paradox, mirage, algorithm, inflation, satire, prophecy, coincidence,
+    sarcasm, stubborn, fragile, hollow, thrifty, bland, blurry, crisp, ripple, embassy, verdict, ransom,
+    double agent, bluff, bankrupt, mortgage, merger, unicorn, pilgrimage, googly, stalemate, cliffhanger, cameo,
+    encore, standing ovation, ego, karma, alibi, customs, ambition, destiny, ritual, interest`,
   ),
 ];
 
 export function getPack(id: string): WordPack {
   return PACKS.find((p) => p.id === id) ?? PACKS[0];
+}
+
+/** The words to draw from for a pack at a level. Matches saved before levels existed play as mixed. */
+export function wordsFor(packId: string, level: Level = "mixed"): readonly string[] {
+  const p = getPack(packId);
+  if (level === "mixed") return p.words;
+  return p.words.filter((w) => p.tricky.has(w) === (level === "tricky"));
 }

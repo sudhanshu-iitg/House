@@ -48,7 +48,7 @@ repeated `X-Request-ID`, and sends `text` to `to` on WhatsApp exactly as given, 
 ```
 app/                 routes: / (home), /password (setup → message everyone → play), /night (tonight's board)
 app/api/notify/      Agent 37 relay
-components/password/ Setup, Optin, Play screens and the useGame hook
+components/password/ Setup, Optin, Play, EditMatch screens and the useGame hook
 lib/engine/          pure game rules (reducer) + tests
 lib/words/           word packs
 lib/notify/          message templates and the client

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { shuffle, type Settings } from "@/lib/engine";
-import { PACKS } from "@/lib/words";
+import { LEVELS, PACKS } from "@/lib/words";
 import type { CrewMember } from "@/lib/store";
 import { Avatar, Icon, TEAM_COLORS, TopBar } from "@/components/ui";
 
@@ -122,6 +122,15 @@ export function Setup({
         {PACKS.map((p) => (
           <button key={p.id} type="button" className="chip" aria-pressed={s.packId === p.id} onClick={() => setSettings({ packId: p.id })}>
             {p.name}
+          </button>
+        ))}
+      </div>
+
+      <span className="eyebrow mt-20">Difficulty</span>
+      <div className="row wrap mt-8" style={{ gap: 8 }}>
+        {LEVELS.map((l) => (
+          <button key={l.id} type="button" className="chip" aria-pressed={(s.level ?? "mixed") === l.id} onClick={() => setSettings({ level: l.id })}>
+            {l.name}
           </button>
         ))}
       </div>

@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { drawWord, playerById, reduce, remainingMs, upNext, type Action, type Match, type Turn } from "@/lib/engine";
-import { getPack } from "@/lib/words";
+import { drawWord, playerById, reduce, remainingMs, upNext, type Action, type Match, type Settings, type Turn } from "@/lib/engine";
+import { wordsFor } from "@/lib/words";
 import { relayConfigured, sendMessages } from "@/lib/notify/client";
 import { isValidPhone, type NotifyMessage } from "@/lib/notify/templates";
-import { logEvent, recordMatch, saveMatch, tallyNight } from "@/lib/store";
+import { logEvent, recordMatch, rememberCrew, saveMatch, tallyNight } from "@/lib/store";
 
 export type Delivery =
   | { state: "idle" }
@@ -22,6 +22,10 @@ function usedWords(m: Match): Set<string> {
   for (const t of m.history) [t.word, ...t.skipped].forEach((w) => used.add(w));
   if (m.turn) [m.turn.word, ...m.turn.skipped].forEach((w) => used.add(w));
   return used;
+}
+
+function deckOf(m: Match): readonly string[] {
+  return wordsFor(m.settings.packId, m.settings.level);
 }
 
 function phonesOf(m: Match): string[] {
@@ -134,14 +138,14 @@ export function useGame(initial: Match) {
 
   const startTurn = useCallback(() => {
     const m = ref.current;
-    const word = drawWord(getPack(m.settings.packId).words, usedWords(m));
+    const word = drawWord(deckOf(m), usedWords(m));
     const next = dispatch({ type: "start_turn", word, now: Date.now() });
     if (next.turn && next.phase === "live") sendWord(next, next.turn, "word");
   }, [dispatch, sendWord]);
 
   const skip = useCallback(() => {
     const m = ref.current;
-    const word = drawWord(getPack(m.settings.packId).words, usedWords(m));
+    const word = drawWord(deckOf(m), usedWords(m));
     const next = dispatch({ type: "skip", word, now: Date.now() });
     if (next !== m && next.turn) {
       logEvent("skip_used");
@@ -149,6 +153,28 @@ export function useGame(initial: Match) {
       sendWord(next, next.turn, "skip");
     }
   }, [dispatch, sendWord, revealOpen]);
+
+  /** Between turns: new pack or level, or corrected numbers. Anyone with a new number gets a welcome. */
+  const edit = useCallback(
+    (settings: Partial<Pick<Settings, "packId" | "level">>, phones: Record<string, string>) => {
+      const prev = ref.current;
+      const next = dispatch({ type: "edit", settings, phones });
+      if (next === prev) return;
+      logEvent("match_edited", { pack: next.settings.packId, level: next.settings.level ?? "mixed", numbers: Object.keys(phones).length });
+      rememberCrew(next.players.filter((p) => p.id in phones).map((p) => ({ name: p.name, phone: p.phone })));
+      const welcome = next.players.filter((p) => p.id in phones && isValidPhone(p.phone));
+      if (welcome.length === 0) return;
+      const teamOf = (id: string) => next.teams.find((t) => t.playerIds.includes(id))?.name ?? "";
+      sendMessages({
+        // Unique per edit, so fixing the same number twice still sends.
+        key: `${next.id}:${next.history.length + 1}:welcome${Date.now().toString(36)}`,
+        messages: welcome.map((p) => ({ kind: "welcome", to: p.phone, name: p.name, team: teamOf(p.id) })),
+      }).then((r) => {
+        if (!r.ok) logEvent("notify_failed", { kind: "welcome", reason: r.reason });
+      });
+    },
+    [dispatch],
+  );
 
   const openReveal = useCallback(() => {
     logEvent("reveal_used", { delivery: delivery.state });
@@ -183,6 +209,7 @@ export function useGame(initial: Match) {
     correct: () => dispatch({ type: "correct", now: Date.now() }),
     nextClue: () => dispatch({ type: "next_clue", now: Date.now() }),
     skip,
+    edit,
     pause: () => dispatch({ type: "pause", now: Date.now() }),
     resume: () => dispatch({ type: "resume", now: Date.now() }),
     proceed: () => dispatch({ type: "continue" }),

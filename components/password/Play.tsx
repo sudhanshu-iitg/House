@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MAX_CLUES, playerById, pointsForClue, remainingMs, skipsLeft, upNext, type Match } from "@/lib/engine";
 import { Avatar, Icon, TEAM_COLORS, TeamLabel } from "@/components/ui";
+import { EditMatch } from "./EditMatch";
 import { useGame, type Delivery } from "./useGame";
 
 function clock(ms: number) {
@@ -18,12 +19,26 @@ function indexOf(m: Match, id: string) {
 export function Play({ initial, onPlayAgain, onExit }: { initial: Match; onPlayAgain: (m: Match) => void; onExit: () => void }) {
   const g = useGame(initial);
   const m = g.match;
+  const [editing, setEditing] = useState(false);
+
+  if (editing && m.phase === "ready") {
+    return (
+      <EditMatch
+        match={m}
+        onCancel={() => setEditing(false)}
+        onSave={(settings, phones) => {
+          g.edit(settings, phones);
+          setEditing(false);
+        }}
+      />
+    );
+  }
 
   if (m.phase === "over") return <Winner match={m} onPlayAgain={() => onPlayAgain(m)} onExit={onExit} />;
   if (m.phase === "result") return <TurnResult match={m} relayOn={g.relayOn} onNext={g.proceed} />;
   if (m.phase === "live" && g.revealOpen) return <Reveal match={m} onDone={g.closeReveal} />;
   if (m.phase === "live") return <TurnLive match={m} now={g.now} delivery={g.delivery} game={g} />;
-  return <TurnReady match={m} onStart={g.startTurn} onExit={onExit} />;
+  return <TurnReady match={m} onStart={g.startTurn} onEdit={() => setEditing(true)} onExit={onExit} />;
 }
 
 function ScoreStrip({ match }: { match: Match }) {
@@ -40,7 +55,7 @@ function ScoreStrip({ match }: { match: Match }) {
   );
 }
 
-function TurnReady({ match, onStart, onExit }: { match: Match; onStart: () => void; onExit: () => void }) {
+function TurnReady({ match, onStart, onEdit, onExit }: { match: Match; onStart: () => void; onEdit: () => void; onExit: () => void }) {
   const next = upNext(match);
   const giver = playerById(match, next.clueGiverId);
   const guesser = playerById(match, next.guesserId);
@@ -50,10 +65,15 @@ function TurnReady({ match, onStart, onExit }: { match: Match; onStart: () => vo
   return (
     <main className="screen">
       <div className="row between">
-        <span className="eyebrow">Password · turn {no}</span>
+        <span className="eyebrow" style={{ whiteSpace: "nowrap" }}>Password · turn {no}</span>
+        <span className="grow" />
+        <button type="button" className="btn ghost sm auto" style={{ whiteSpace: "nowrap" }} onClick={onEdit}>
+          Edit
+        </button>
         <button
           type="button"
           className="btn ghost sm auto"
+          style={{ whiteSpace: "nowrap" }}
           onClick={() => {
             if (window.confirm("End this match? The score won't count tonight.")) onExit();
           }}

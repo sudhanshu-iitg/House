@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   targetScore: 15,
   skipsPerTurn: 1,
   packId: "everyday",
+  level: "mixed",
 };
 
 /** 3 points on clue 1, 2 on clue 2, 1 on clue 3. */
@@ -86,7 +87,9 @@ export type Action =
   | { type: "timeout"; now: number }
   | { type: "pause"; now: number }
   | { type: "resume"; now: number }
-  | { type: "continue" };
+  | { type: "continue" }
+  /** Between turns: switch the word pack or level, or fix players' WhatsApp numbers (by player id). */
+  | { type: "edit"; settings?: Partial<Pick<Settings, "packId" | "level">>; phones?: Record<string, string> };
 
 /** Pure reducer. Invalid actions for the current phase return the match unchanged. */
 export function reduce(match: Match, action: Action): Match {
@@ -133,6 +136,15 @@ export function reduce(match: Match, action: Action): Match {
     case "continue":
       if (match.phase !== "result") return match;
       return { ...match, phase: "ready" };
+    case "edit": {
+      if (match.phase !== "ready" && match.phase !== "result") return match;
+      const phones = action.phones ?? {};
+      return {
+        ...match,
+        settings: { ...match.settings, ...action.settings },
+        players: match.players.map((p) => (p.id in phones ? { ...p, phone: phones[p.id] } : p)),
+      };
+    }
   }
 }
 
